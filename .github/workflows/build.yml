@@ -1,0 +1,38 @@
+name: Build Flutter APK
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Extract ZIP
+        run: |
+          unzip -o project.zip -d extracted || true
+          if [ -d "extracted" ]; then
+            SUBFOLDER=$(ls extracted | head -1)
+            if [ -d "extracted/$SUBFOLDER/lib" ]; then
+              cp -r extracted/$SUBFOLDER/. ./
+            else
+              cp -r extracted/. ./
+            fi
+          fi
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version-file: pubspec.yaml
+      - name: Setup Android NDK
+        run: echo "y" | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;28.2.13676358" || true
+      - run: flutter pub get
+      - run: flutter build apk --release --no-tree-shake-icons
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
